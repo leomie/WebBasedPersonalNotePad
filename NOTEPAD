@@ -1,0 +1,1977 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Notepad</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Roboto:wght@300;400;500&family=Poppins:wght@300;400;500;600&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Fira+Code:wght@300;400;500&family=JetBrains+Mono:wght@300;400;500&family=Dancing+Script:wght@400;600;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #111111;
+  --bg2: #1a1a1a;
+  --bg3: #222222;
+  --bg4: #2a2a2a;
+  --border: #333333;
+  --border2: #444444;
+  --text: #e8e8e8;
+  --text2: #aaaaaa;
+  --text3: #666666;
+  --accent: #4e9eff;
+  --accent2: #3a82d4;
+  --danger: #ff5555;
+  --success: #50fa7b;
+  --tab-active: #1a1a1a;
+  --tab-inactive: #111111;
+  --toolbar-bg: #1a1a1a;
+  --editor-bg: #111111;
+  --scrollbar-thumb: #444;
+  --scrollbar-track: #1a1a1a;
+  --shadow: 0 2px 8px rgba(0,0,0,0.4);
+  --radius: 6px;
+  --transition: 0.15s ease;
+}
+
+body.light {
+  --bg: #f5f5f5;
+  --bg2: #ffffff;
+  --bg3: #ebebeb;
+  --bg4: #e0e0e0;
+  --border: #d0d0d0;
+  --border2: #bbbbbb;
+  --text: #1a1a1a;
+  --text2: #555555;
+  --text3: #999999;
+  --accent: #1a6fd4;
+  --accent2: #1558b0;
+  --tab-active: #ffffff;
+  --tab-inactive: #ebebeb;
+  --toolbar-bg: #ffffff;
+  --editor-bg: #ffffff;
+  --scrollbar-thumb: #bbb;
+  --scrollbar-track: #ebebeb;
+  --shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+html { font-size: 16px; }
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Prevent accidental text selection while dragging tables */
+body.is-resizing {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border2); }
+
+/* Tab Bar */
+#tab-bar-wrapper {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+  min-height: 38px;
+  overflow: hidden;
+  flex-shrink: 0;
+  position: relative;
+}
+
+#tab-bar {
+  display: flex;
+  align-items: stretch;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  scrollbar-width: none;
+}
+#tab-bar::-webkit-scrollbar { display: none; }
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 12px;
+  min-width: 100px;
+  max-width: 220px;
+  background: var(--tab-inactive);
+  border-right: 1px solid var(--border);
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background var(--transition);
+  flex-shrink: 0;
+}
+.tab:hover { background: var(--bg3); }
+.tab.active {
+  background: var(--tab-active);
+  border-bottom: 2px solid var(--accent);
+}
+.tab-title {
+  flex: 1;
+  font-size: 13px;
+  color: var(--text2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  outline: none;
+}
+.tab.active .tab-title { color: var(--text); }
+.tab-title-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: inherit;
+  width: 100%;
+  padding: 0;
+}
+
+/* Tab Actions (Rename & Close) */
+.tab-actions {
+  display: flex;
+  opacity: 0;
+  transition: opacity 0.2s;
+  gap: 2px;
+}
+.tab:hover .tab-actions, .tab.active .tab-actions { opacity: 1; }
+
+.tab-action-btn {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 13px;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+  cursor: pointer;
+}
+.tab-action-btn.close:hover { background-color: var(--danger); color: white; }
+.tab-action-btn.rename:hover { background-color: var(--bg4); color: var(--accent); }
+
+.tab.dragging { opacity: 0.5; }
+.tab.drag-over { border-left: 2px solid var(--accent); }
+
+#add-tab-btn {
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  transition: color var(--transition);
+  flex-shrink: 0;
+}
+#add-tab-btn:hover { color: var(--accent); }
+
+.tab-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  border-left: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.icon-btn {
+  background: none;
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  padding: 5px 7px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn:hover { background: var(--bg3); color: var(--text); }
+.icon-btn.active, .icon-btn[data-active="true"] { background: var(--bg4); color: var(--accent); }
+
+/* Toolbar */
+#toolbar {
+  background: var(--toolbar-bg);
+  border-bottom: 1px solid var(--border);
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  flex-shrink: 0;
+  min-height: 40px;
+}
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+.toolbar-divider {
+  width: 1px;
+  height: 22px;
+  background: var(--border);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+.tb-btn {
+  background: none;
+  border: none;
+  color: var(--text2);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 13px;
+  min-width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  white-space: nowrap;
+  user-select: none;
+}
+.tb-btn:hover { background: var(--bg3); color: var(--text); }
+.tb-btn.active { background: var(--bg4); color: var(--accent); }
+.tb-btn svg { width: 14px; height: 14px; fill: currentColor; pointer-events: none; }
+
+.tb-select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+  height: 28px;
+  transition: border-color var(--transition);
+}
+.tb-select:hover, .tb-select:focus { border-color: var(--accent); }
+.tb-select option { background: var(--bg2); }
+
+.tb-color-btn {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 1px;
+  background: none;
+  padding: 3px;
+  transition: background var(--transition);
+}
+.tb-color-btn:hover { background: var(--bg3); }
+.tb-color-btn svg { width: 14px; height: 14px; fill: var(--text2); }
+.tb-color-btn .color-bar {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+}
+.tb-color-btn input[type=color] {
+  position: absolute;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+  top: 0; left: 0;
+  border: none;
+  padding: 0;
+}
+
+/* Dropdowns & Popups */
+.dropdown { position: relative; display: inline-flex; }
+.dropdown-content {
+  display: none; position: absolute; top: 100%; left: 0;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); z-index: 200; box-shadow: var(--shadow);
+}
+.dropdown-content.open { display: block; }
+.dropdown.left-align .dropdown-content { left: auto; right: 0; }
+
+/* Table Picker */
+.table-picker-content { padding: 10px; width: max-content; }
+.table-grid { display: grid; grid-template-columns: repeat(10, 16px); gap: 2px; }
+.table-cell { width: 16px; height: 16px; border: 1px solid var(--border); cursor: pointer; }
+.table-cell.highlight { background: var(--accent); border-color: var(--accent2); }
+.table-label { text-align: center; font-size: 12px; margin-top: 6px; color: var(--text); font-weight: 500;}
+
+/* Highlight Popup */
+.highlight-picker {
+  position: relative;
+  display: inline-flex;
+}
+.highlight-popup {
+  display: none;
+  position: absolute;
+  top: 32px;
+  left: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px;
+  gap: 6px;
+  flex-direction: row;
+  z-index: 200;
+  box-shadow: var(--shadow);
+}
+.highlight-popup.open { display: flex; }
+.hl-swatch {
+  width: 22px; height: 22px;
+  border-radius: 4px;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color var(--transition);
+}
+.hl-swatch:hover { border-color: var(--accent); }
+
+/* Special Char Picker */
+#special-char-panel {
+  display: none;
+  position: absolute;
+  top: 40px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+  z-index: 300;
+  box-shadow: var(--shadow);
+  min-width: 280px;
+}
+#special-char-panel.open { display: block; }
+.sc-group-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text3);
+  margin-bottom: 5px;
+  margin-top: 8px;
+}
+.sc-group-title:first-child { margin-top: 0; }
+.sc-chars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+.sc-btn {
+  background: var(--bg3);
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+}
+.sc-btn:hover { background: var(--accent); color: white; }
+
+/* Editor Area */
+#editor-area {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.editor-pane {
+  display: none;
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 48px;
+  outline: none;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text);
+  background: var(--editor-bg);
+  min-height: 0;
+}
+.editor-pane.active { display: block; }
+
+.editor-pane:focus { outline: none; }
+
+/* Editor content styles */
+.editor-pane h1 { font-size: 2em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.editor-pane h2 { font-size: 1.5em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.editor-pane h3 { font-size: 1.17em; font-weight: 600; margin: 0.6em 0 0.3em; }
+.editor-pane p { margin: 0.4em 0; }
+.editor-pane ul, .editor-pane ol { padding-left: 2em; margin: 0.4em 0; }
+.editor-pane li { margin: 0.2em 0; }
+.editor-pane blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 16px;
+  color: var(--text2);
+  margin: 0.6em 0;
+  font-style: italic;
+}
+.editor-pane pre, .editor-pane code {
+  font-family: 'Fira Code', 'JetBrains Mono', monospace;
+  background: var(--bg3);
+  border-radius: 4px;
+}
+.editor-pane code { padding: 2px 5px; font-size: 0.88em; }
+.editor-pane pre {
+  padding: 12px 16px;
+  margin: 0.6em 0;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+}
+.editor-pane pre code { background: none; padding: 0; font-size: inherit; }
+.editor-pane hr { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
+.editor-pane ul[data-checklist] { list-style: none; padding-left: 0.5em; }
+.editor-pane ul[data-checklist] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 2px 0;
+}
+.editor-pane ul[data-checklist] li input[type=checkbox] {
+  margin-top: 3px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+.editor-pane ul[data-checklist] li.checked span { text-decoration: line-through; color: var(--text3); }
+
+/* Table styling within editor */
+.editor-pane table { margin-bottom: 1em; border-collapse: collapse; table-layout: fixed; }
+.editor-pane td { border: 1px solid #777 !important; color: inherit; padding: 8px; min-width: 20px; vertical-align: top; }
+
+/* Status Bar */
+#status-bar {
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  padding: 3px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11.5px;
+  color: var(--text3);
+  flex-shrink: 0;
+  gap: 16px;
+}
+.status-left, .status-right {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+#autosave-status {
+  color: var(--text3);
+  transition: color 0.3s;
+}
+#autosave-status.flash { color: var(--success); }
+
+/* Find & Replace */
+#find-replace-panel {
+  display: none;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 6px 12px;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+#find-replace-panel.open { display: flex; }
+.fr-input {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  outline: none;
+  width: 180px;
+  transition: border-color var(--transition);
+}
+.fr-input:focus { border-color: var(--accent); }
+.fr-btn {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.fr-btn:hover { background: var(--bg4); border-color: var(--accent); }
+#fr-count { font-size: 12px; color: var(--text3); }
+
+/* Modals / Overlays */
+.overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.overlay.open { display: flex; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 20px 24px;
+  max-width: 500px;
+  width: 90%;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  animation: slideUp 0.15s ease;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+@keyframes slideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.modal h2 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.modal-close {
+  background: none;
+  border: none;
+  color: var(--text3);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0;
+  transition: color var(--transition);
+}
+.modal-close:hover { color: var(--danger); }
+
+/* Shortcuts Modal */
+.shortcut-table { width: 100%; border-collapse: collapse; }
+.shortcut-table td {
+  padding: 6px 8px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text2);
+}
+.shortcut-table td:first-child { color: var(--text); }
+.shortcut-table tr:last-child td { border-bottom: none; }
+kbd {
+  background: var(--bg3);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+  font-family: 'Fira Code', monospace;
+  color: var(--text);
+}
+
+/* Fullscreen Focus Mode */
+body.fullscreen-mode #tab-bar-wrapper,
+body.fullscreen-mode #toolbar,
+body.fullscreen-mode #status-bar,
+body.fullscreen-mode #find-replace-panel {
+  display: none !important;
+}
+body.fullscreen-mode #editor-area { flex: 1; }
+body.fullscreen-mode .editor-pane {
+  padding: 60px max(60px, 15%);
+  max-width: none;
+}
+#fullscreen-exit {
+  display: none;
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  color: var(--text2);
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  font-size: 12px;
+  cursor: pointer;
+  z-index: 999;
+  transition: all var(--transition);
+}
+#fullscreen-exit:hover { background: var(--bg3); color: var(--text); }
+body.fullscreen-mode #fullscreen-exit { display: block; }
+
+/* Find & Replace Highlights */
+.find-highlight {
+  background: rgba(255, 200, 0, 0.35);
+  border-radius: 2px;
+}
+.find-highlight.current {
+  background: rgba(255, 130, 0, 0.55);
+  outline: 1px solid orange;
+}
+
+/* Print Styles */
+@media print {
+  #tab-bar-wrapper, #toolbar, #status-bar, #find-replace-panel,
+  .overlay, #fullscreen-exit { display: none !important; }
+  body { background: white; color: black; }
+  .editor-pane.active {
+    display: block;
+    overflow: visible;
+    padding: 0;
+    color: black;
+    background: white;
+  }
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .editor-pane { padding: 16px 16px; }
+  .tab { min-width: 80px; max-width: 130px; }
+  #toolbar { gap: 1px; }
+}
+
+/* Tooltip */
+[data-tip] { position: relative; }
+[data-tip]:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg4);
+  color: var(--text);
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 500;
+  border: 1px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<div id="tab-bar-wrapper">
+  <div id="tab-bar">
+    <button id="add-tab-btn" title="New Tab (Ctrl+T)">+</button>
+  </div>
+  <div class="tab-bar-actions">
+    <button class="icon-btn" id="toggle-theme-btn" data-tip="Toggle Theme">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+        <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+      </svg>
+    </button>
+    <button class="icon-btn" id="fullscreen-btn" data-tip="Focus Mode (Ctrl+Shift+F)">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+      </svg>
+    </button>
+    <button class="icon-btn" id="shortcuts-btn" data-tip="Shortcuts (Ctrl+/)">?</button>
+    <button class="icon-btn" id="export-btn" data-tip="Export">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+      </svg>
+    </button>
+    <button class="icon-btn" id="import-btn" data-tip="Import">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+    </button>
+    <input type="file" id="import-file-input" accept=".txt,.html,.doc" style="display:none">
+  </div>
+</div>
+
+<div id="toolbar">
+  <div class="toolbar-group">
+    <button class="tb-btn" id="btn-undo" data-tip="Undo (Ctrl+Z)" onclick="document.execCommand('undo')">
+      <svg viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M3 13C5.333 7.333 11 5 15 8c2.5 1.8 4 4.5 4 8" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tb-btn" id="btn-redo" data-tip="Redo (Ctrl+Y)" onclick="document.execCommand('redo')">
+      <svg viewBox="0 0 24 24"><path d="M21 7v6h-6"/><path d="M21 13C18.667 7.333 13 5 9 8 6.5 9.8 5 12.5 5 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <select class="tb-select" id="font-family-select" style="width:130px" title="Font Family">
+      <optgroup label="Sans-Serif">
+        <option value="Inter, system-ui, sans-serif">Inter</option>
+        <option value="Roboto, system-ui, sans-serif">Roboto</option>
+        <option value="Poppins, system-ui, sans-serif">Poppins</option>
+      </optgroup>
+      <optgroup label="Serif">
+        <option value="Merriweather, Georgia, serif">Merriweather</option>
+        <option value="'Playfair Display', Georgia, serif">Playfair Display</option>
+      </optgroup>
+      <optgroup label="Monospace">
+        <option value="'Fira Code', 'Courier New', monospace">Fira Code</option>
+        <option value="'JetBrains Mono', 'Courier New', monospace">JetBrains Mono</option>
+      </optgroup>
+      <optgroup label="Decorative">
+        <option value="'Dancing Script', cursive">Dancing Script</option>
+      </optgroup>
+    </select>
+    <select class="tb-select" id="font-size-select" style="width:60px" title="Font Size">
+      <option value="10">10</option>
+      <option value="12">12</option>
+      <option value="14">14</option>
+      <option value="16" selected>16</option>
+      <option value="18">18</option>
+      <option value="20">20</option>
+      <option value="24">24</option>
+      <option value="28">28</option>
+      <option value="32">32</option>
+      <option value="40">40</option>
+      <option value="48">48</option>
+      <option value="64">64</option>
+      <option value="72">72</option>
+    </select>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <button class="tb-btn" id="btn-bold" data-tip="Bold (Ctrl+B)" onclick="fmt('bold')"><svg viewBox="0 0 24 24"><path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z"/><path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="tb-btn" id="btn-italic" data-tip="Italic (Ctrl+I)" onclick="fmt('italic')"><svg viewBox="0 0 24 24"><line x1="19" y1="4" x2="10" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="20" x2="5" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="15" y1="4" x2="9" y2="20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button class="tb-btn" id="btn-underline" data-tip="Underline (Ctrl+U)" onclick="fmt('underline')"><svg viewBox="0 0 24 24"><path d="M6 3v7a6 6 0 0 0 6 6 6 6 0 0 0 6-6V3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="21" x2="20" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button class="tb-btn" id="btn-strikethrough" data-tip="Strikethrough" onclick="fmt('strikeThrough')"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M16 6C16 6 14.5 4 12 4S7 5.5 7 8c0 3 3 4 5 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M8 18c0 0 1.5 2 4 2s5-1.5 5-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    <button class="tb-btn" id="btn-superscript" data-tip="Superscript" onclick="fmt('superscript')"><span style="font-size:12px;font-weight:600">x<sup style="font-size:8px">2</sup></span></button>
+    <button class="tb-btn" id="btn-subscript" data-tip="Subscript" onclick="fmt('subscript')"><span style="font-size:12px;font-weight:600">x<sub style="font-size:8px">2</sub></span></button>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <button class="tb-color-btn" id="text-color-btn" data-tip="Text Color">
+      <svg viewBox="0 0 24 24"><path d="M9 3L5 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M15 3L19 21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M6.5 13h11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <div class="color-bar" id="text-color-bar" style="background:#e8e8e8"></div>
+      <input type="color" id="text-color-input" value="#e8e8e8" title="Text Color">
+    </button>
+    <div class="highlight-picker">
+      <button class="tb-btn" id="highlight-btn" data-tip="Highlight Color" onclick="toggleHighlightPicker(event)">
+        <svg viewBox="0 0 24 24" width="14" height="14"><path d="M15.5 2.1L18 4.6a2 2 0 0 1 0 2.8l-9.5 9.5-4 1.5 1.5-4 9.5-9.5a2 2 0 0 1 2.8 0z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="3" y1="21" x2="21" y2="21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <div class="highlight-popup" id="highlight-popup">
+        <div class="hl-swatch" style="background:#ffe066" data-color="#ffe066" title="Yellow" onclick="applyHighlight('#ffe066')"></div>
+        <div class="hl-swatch" style="background:#b8f7b8" data-color="#b8f7b8" title="Green" onclick="applyHighlight('#b8f7b8')"></div>
+        <div class="hl-swatch" style="background:#ffb3c6" data-color="#ffb3c6" title="Pink" onclick="applyHighlight('#ffb3c6')"></div>
+        <div class="hl-swatch" style="background:#b3d9ff" data-color="#b3d9ff" title="Blue" onclick="applyHighlight('#b3d9ff')"></div>
+        <div class="hl-swatch" style="background:#e0b3ff" data-color="#e0b3ff" title="Purple" onclick="applyHighlight('#e0b3ff')"></div>
+        <div class="hl-swatch" style="background:transparent;border:2px solid var(--border2)" title="Remove Highlight" onclick="applyHighlight('transparent')"></div>
+      </div>
+    </div>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <button class="tb-btn" id="btn-h1" data-tip="Heading 1" onclick="formatBlock('H1')"><span style="font-size:13px;font-weight:700">H1</span></button>
+    <button class="tb-btn" id="btn-h2" data-tip="Heading 2" onclick="formatBlock('H2')"><span style="font-size:13px;font-weight:600">H2</span></button>
+    <button class="tb-btn" id="btn-h3" data-tip="Heading 3" onclick="formatBlock('H3')"><span style="font-size:13px;font-weight:500">H3</span></button>
+    <button class="tb-btn" id="btn-normal" data-tip="Normal Text" onclick="formatBlock('P')"><span style="font-size:11px">¶</span></button>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <button class="tb-btn" id="btn-alignleft" data-tip="Align Left" onclick="fmt('justifyLeft')">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="12" x2="15" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tb-btn" id="btn-aligncenter" data-tip="Align Center" onclick="fmt('justifyCenter')">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="12" x2="18" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tb-btn" id="btn-alignright" data-tip="Align Right" onclick="fmt('justifyRight')">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tb-btn" id="btn-alignjustify" data-tip="Justify" onclick="fmt('justifyFull')">
+      <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <button class="tb-btn" id="btn-ulist" data-tip="Unordered List" onclick="fmt('insertUnorderedList')">
+      <svg viewBox="0 0 24 24"><line x1="9" y1="6" x2="20" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="12" x2="20" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="9" y1="18" x2="20" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg>
+    </button>
+    <button class="tb-btn" id="btn-olist" data-tip="Ordered List" onclick="fmt('insertOrderedList')">
+      <svg viewBox="0 0 24 24"><line x1="10" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="10" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="10" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M4 6h1V9" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M3.5 14.5c0-1 1.5-1 1.5 0s-1.5 1-1.5 2H5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+    </button>
+    <button class="tb-btn" id="btn-checklist" data-tip="Checklist" onclick="insertChecklist()">
+      <svg viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <button class="tb-btn" id="btn-blockquote" data-tip="Blockquote" onclick="insertBlockquote()"><span style="font-size:16px;font-style:italic">"</span></button>
+    <button class="tb-btn" id="btn-code" data-tip="Code Block" onclick="insertCodeBlock()"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><polyline points="8 6 2 12 8 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <button class="tb-btn" id="btn-hr" data-tip="Horizontal Rule" onclick="fmt('insertHorizontalRule')"><svg viewBox="0 0 24 24"><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+    
+    <div class="dropdown" id="table-dropdown" data-tip="Insert Table">
+      <button class="tb-btn" onclick="toggleTablePicker(event)"><span style="font-size:18px;">▦</span></button>
+      <div class="dropdown-content table-picker-content" id="table-popup">
+        <div class="table-grid" id="table-grid"></div>
+        <div class="table-label" id="table-label">Insert Table</div>
+      </div>
+    </div>
+
+    <button class="tb-btn" id="btn-special-char" data-tip="Special Characters (Ω)" onclick="toggleSpecialCharPanel(event)"><span style="font-size:14px;font-weight:600">Ω</span></button>
+    <div id="special-char-panel">
+      <div class="sc-group-title">Typography</div>
+      <div class="sc-chars" id="sc-typography"></div>
+      <div class="sc-group-title">Math</div>
+      <div class="sc-chars" id="sc-math"></div>
+      <div class="sc-group-title">Arrows</div>
+      <div class="sc-chars" id="sc-arrows"></div>
+      <div class="sc-group-title">Emoji</div>
+      <div class="sc-chars" id="sc-emoji"></div>
+      <div class="sc-group-title">Currency</div>
+      <div class="sc-chars" id="sc-currency"></div>
+    </div>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <select class="tb-select" id="line-height-select" style="width:62px" title="Line Height">
+      <option value="1.0">1.0</option>
+      <option value="1.2">1.2</option>
+      <option value="1.5">1.5</option>
+      <option value="1.6" selected>1.6</option>
+      <option value="1.8">1.8</option>
+      <option value="2.0">2.0</option>
+      <option value="2.5">2.5</option>
+    </select>
+  </div>
+  <div class="toolbar-divider"></div>
+  <div class="toolbar-group">
+    <button class="tb-btn" id="btn-clear-fmt" data-tip="Clear Formatting" onclick="fmt('removeFormat')">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="6" y1="6" x2="18" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+</div>
+
+<div id="find-replace-panel">
+  <input type="text" class="fr-input" id="fr-find" placeholder="Find…">
+  <input type="text" class="fr-input" id="fr-replace" placeholder="Replace…">
+  <button class="fr-btn" onclick="frFindAll()">Find All</button>
+  <button class="fr-btn" onclick="frPrev()">◀ Prev</button>
+  <button class="fr-btn" onclick="frNext()">Next ▶</button>
+  <button class="fr-btn" onclick="frReplaceOne()">Replace</button>
+  <button class="fr-btn" onclick="frReplaceAll()">Replace All</button>
+  <span id="fr-count"></span>
+  <button class="fr-btn" onclick="closeFindReplace()" style="margin-left:auto">✕ Close</button>
+</div>
+
+<div id="editor-area"></div>
+
+<div id="status-bar">
+  <div class="status-left">
+    <span id="word-count">Words: 0</span>
+    <span id="char-count">Chars: 0</span>
+    <span id="line-count">Lines: 0</span>
+  </div>
+  <div class="status-right">
+    <span id="autosave-status">Saved</span>
+    <span id="tab-indicator">Tab 1</span>
+  </div>
+</div>
+
+<button id="fullscreen-exit" onclick="exitFullscreen()">✕ Exit Focus</button>
+
+<div class="overlay" id="shortcuts-overlay">
+  <div class="modal">
+    <h2>Keyboard Shortcuts <button class="modal-close" onclick="closeModal('shortcuts-overlay')">✕</button></h2>
+    <table class="shortcut-table">
+      <tr><td><kbd>Ctrl+T</kbd></td><td>New Tab</td></tr>
+      <tr><td><kbd>Ctrl+W</kbd></td><td>Close Tab</td></tr>
+      <tr><td><kbd>Ctrl+Tab</kbd></td><td>Next Tab</td></tr>
+      <tr><td><kbd>Ctrl+Shift+Tab</kbd></td><td>Previous Tab</td></tr>
+      <tr><td><kbd># + Space</kbd></td><td>Heading 1, 2, or 3</td></tr>
+      <tr><td><kbd>Ctrl+B</kbd></td><td>Bold</td></tr>
+      <tr><td><kbd>Ctrl+I</kbd></td><td>Italic</td></tr>
+      <tr><td><kbd>Ctrl+U</kbd></td><td>Underline</td></tr>
+      <tr><td><kbd>Ctrl+Z</kbd></td><td>Undo</td></tr>
+      <tr><td><kbd>Ctrl+Y</kbd></td><td>Redo</td></tr>
+      <tr><td><kbd>Ctrl+F</kbd></td><td>Find & Replace</td></tr>
+      <tr><td><kbd>Ctrl+Shift+F</kbd></td><td>Focus Mode</td></tr>
+      <tr><td><kbd>Ctrl+/</kbd></td><td>Show Shortcuts</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Close Panel / Exit Focus</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="overlay" id="export-overlay">
+  <div class="modal">
+    <h2>Export / Print <button class="modal-close" onclick="closeModal('export-overlay')">✕</button></h2>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px">
+      <button class="fr-btn" onclick="exportDoc()" style="padding:10px 16px;font-size:14px">⬇ Download as .doc (MS Word)</button>
+      <button class="fr-btn" onclick="exportHtml()" style="padding:10px 16px;font-size:14px">⬇ Download as .html (Web)</button>
+      <button class="fr-btn" onclick="printDoc()" style="padding:10px 16px;font-size:14px">🖨 Print / Save as PDF</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+'use strict';
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let tabs = [];
+let activeTabId = null;
+let tabIdCounter = 0;
+let autosaveTimer = null;
+let dragSrcTabId = null;
+let frMatches = [];
+let frMatchIndex = -1;
+let lastSavedIndicator = null;
+let currentRange = null; 
+
+const DEFAULT_FONT = 'Inter, system-ui, sans-serif';
+const DEFAULT_SIZE = '16';
+const DEFAULT_LH = '1.6';
+
+// ─── Storage helpers ─────────────────────────────────────────────────────────
+function storageGet(key) {
+  try { return localStorage.getItem(key); } catch(e) { return null; }
+}
+function storageSet(key, val) {
+  try { localStorage.setItem(key, val); } catch(e) {}
+}
+
+// ─── Theme ───────────────────────────────────────────────────────────────────
+function initTheme() {
+  const t = storageGet('np-theme');
+  if (t === 'light') document.body.classList.add('light');
+}
+document.getElementById('toggle-theme-btn').addEventListener('click', () => {
+  document.body.classList.toggle('light');
+  storageSet('np-theme', document.body.classList.contains('light') ? 'light' : 'dark');
+});
+
+// ─── Cursor & Selection Memory ───────────────────────────────────────────────
+function saveSelection() {
+  const sel = window.getSelection();
+  if (sel.rangeCount > 0) {
+    const range = sel.getRangeAt(0);
+    const activePane = getActivePane();
+    if (activePane && activePane.contains(range.commonAncestorContainer)) {
+      currentRange = range;
+    }
+  }
+}
+function restoreSelection() {
+  const activePane = getActivePane();
+  if (currentRange && activePane && activePane.contains(currentRange.commonAncestorContainer)) {
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(currentRange);
+  } else if (activePane) {
+    activePane.focus();
+  }
+}
+
+// ─── Tab management ──────────────────────────────────────────────────────────
+function createTab(title, content, font, size, lineHeight, scrollTop) {
+  const id = ++tabIdCounter;
+  const tab = {
+    id,
+    title: title || 'Untitled',
+    content: content || '<p><br></p>',
+    font: font || DEFAULT_FONT,
+    size: size || DEFAULT_SIZE,
+    lineHeight: lineHeight || DEFAULT_LH,
+    scrollTop: scrollTop || 0
+  };
+  tabs.push(tab);
+  renderTabBar();
+  createEditorPane(tab);
+  switchTab(id);
+  return tab;
+}
+
+function createEditorPane(tab) {
+  const area = document.getElementById('editor-area');
+  const pane = document.createElement('div');
+  pane.className = 'editor-pane';
+  pane.id = 'pane-' + tab.id;
+  pane.contentEditable = 'true';
+  pane.spellcheck = true;
+  pane.innerHTML = tab.content;
+  pane.style.fontFamily = tab.font;
+  pane.style.fontSize = tab.size + 'px';
+  pane.style.lineHeight = tab.lineHeight;
+  
+  pane.addEventListener('input', () => {
+    tab.content = pane.innerHTML;
+    updateStats();
+    scheduleAutosave();
+  });
+  pane.addEventListener('keydown', handleEditorKeydown);
+  
+  // Selection tracking bindings
+  pane.addEventListener('keyup', (e) => { updateToolbarState(); saveSelection(); });
+  pane.addEventListener('mouseup', (e) => { updateToolbarState(); saveSelection(); });
+  pane.addEventListener('mouseleave', saveSelection);
+  pane.addEventListener('focusout', saveSelection);
+  
+  pane.addEventListener('scroll', () => { tab.scrollTop = pane.scrollTop; });
+  area.appendChild(pane);
+}
+
+function removeTab(id) {
+  if (tabs.length === 1) {
+    const tab = getTab(id);
+    if (tab) {
+      tab.content = '<p><br></p>';
+      tab.title = 'Untitled';
+      const pane = getPaneEl(id);
+      if (pane) pane.innerHTML = '<p><br></p>';
+      renderTabBar();
+      updateStats();
+    }
+    return;
+  }
+  const idx = tabs.findIndex(t => t.id === id);
+  tabs.splice(idx, 1);
+  const pane = getPaneEl(id);
+  if (pane) pane.remove();
+  if (activeTabId === id) {
+    const next = tabs[Math.min(idx, tabs.length - 1)];
+    switchTab(next.id);
+  } else {
+    renderTabBar();
+  }
+  saveTabs();
+}
+
+function switchTab(id) {
+  if (activeTabId !== null) {
+    const prevPane = getPaneEl(activeTabId);
+    if (prevPane) prevPane.classList.remove('active');
+  }
+  activeTabId = id;
+  currentRange = null; 
+  const pane = getPaneEl(id);
+  if (pane) {
+    pane.classList.add('active');
+    pane.scrollTop = getTab(id).scrollTop || 0;
+    setTimeout(() => pane.focus(), 30);
+  }
+  renderTabBar();
+  updateStats();
+  updateToolbarFromTab();
+  updateTabIndicator();
+}
+
+function getTab(id) { return tabs.find(t => t.id === id); }
+function getPaneEl(id) { return document.getElementById('pane-' + id); }
+function getActivePane() { return getPaneEl(activeTabId); }
+
+function renderTabBar() {
+  const bar = document.getElementById('tab-bar');
+  const addBtn = document.getElementById('add-tab-btn');
+  
+  // Cleanly remove only the tabs, preserving the add button's event bindings
+  bar.querySelectorAll('.tab').forEach(t => t.remove());
+
+  tabs.forEach(tab => {
+    const el = document.createElement('div');
+    el.className = 'tab' + (tab.id === activeTabId ? ' active' : '');
+    el.dataset.id = tab.id;
+    el.draggable = true;
+
+    const title = document.createElement('span');
+    title.className = 'tab-title';
+    title.textContent = tab.title;
+    title.addEventListener('dblclick', (e) => { e.stopPropagation(); startRenameTab(tab.id, el, title); });
+
+    // Custom Actions Container (Pencil & Close)
+    const actionsContainer = document.createElement('div');
+    actionsContainer.className = 'tab-actions';
+
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'tab-action-btn rename';
+    renameBtn.innerHTML = '✎';
+    renameBtn.title = 'Rename Tab';
+    renameBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        startRenameTab(tab.id, el, title); 
+    });
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'tab-action-btn close';
+    closeBtn.innerHTML = '×';
+    closeBtn.title = 'Close Tab';
+    closeBtn.addEventListener('click', (e) => { 
+        e.stopPropagation(); 
+        removeTab(tab.id); 
+    });
+
+    actionsContainer.appendChild(renameBtn);
+    actionsContainer.appendChild(closeBtn);
+
+    el.appendChild(title);
+    el.appendChild(actionsContainer);
+
+    el.addEventListener('click', () => switchTab(tab.id));
+    el.addEventListener('dragstart', (e) => { dragSrcTabId = tab.id; el.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; });
+    el.addEventListener('dragend', () => { el.classList.remove('dragging'); document.querySelectorAll('.tab').forEach(t => t.classList.remove('drag-over')); });
+    el.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; el.classList.add('drag-over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('drag-over'));
+    el.addEventListener('drop', (e) => {
+      e.preventDefault();
+      el.classList.remove('drag-over');
+      if (dragSrcTabId !== tab.id) {
+        const srcIdx = tabs.findIndex(t => t.id === dragSrcTabId);
+        const dstIdx = tabs.findIndex(t => t.id === tab.id);
+        const [moved] = tabs.splice(srcIdx, 1);
+        tabs.splice(dstIdx, 0, moved);
+        renderTabBar();
+        saveTabs();
+      }
+    });
+    
+    // Insert the tab directly before the + button
+    bar.insertBefore(el, addBtn);
+  });
+}
+
+function startRenameTab(id, el, titleEl) {
+  // Prevent multiple double-clicks from spawning nested inputs
+  if (el.querySelector('.tab-title-input')) return;
+
+  const tab = getTab(id);
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'tab-title-input';
+  input.value = tab.title;
+  el.replaceChild(input, titleEl);
+  input.focus();
+  input.select();
+  
+  function finish() {
+    const newTitle = input.value.trim() || 'Untitled';
+    tab.title = newTitle;
+    titleEl.textContent = newTitle;
+    if (el.contains(input)) {
+        el.replaceChild(titleEl, input);
+    }
+    saveTabs();
+  }
+  
+  input.addEventListener('blur', finish);
+  input.addEventListener('keydown', (e) => { 
+      if (e.key === 'Enter') { e.preventDefault(); input.blur(); } 
+      if (e.key === 'Escape') { input.value = tab.title; input.blur(); } 
+  });
+}
+
+function updateTabIndicator() {
+  const idx = tabs.findIndex(t => t.id === activeTabId);
+  document.getElementById('tab-indicator').textContent = 'Tab ' + (idx + 1) + ' of ' + tabs.length;
+}
+
+// ─── Toolbar state update ─────────────────────────────────────────────────────
+function updateToolbarState() {
+  setTimeout(() => {
+    const cmds = ['bold','italic','underline','strikeThrough','superscript','subscript','justifyLeft','justifyCenter','justifyRight','justifyFull','insertUnorderedList','insertOrderedList'];
+    const btnMap = { 'bold':'btn-bold','italic':'btn-italic','underline':'btn-underline','strikeThrough':'btn-strikethrough','superscript':'btn-superscript','subscript':'btn-subscript','justifyLeft':'btn-alignleft','justifyCenter':'btn-aligncenter','justifyRight':'btn-alignright','justifyFull':'btn-alignjustify','insertUnorderedList':'btn-ulist','insertOrderedList':'btn-olist' };
+    cmds.forEach(cmd => {
+      const btn = document.getElementById(btnMap[cmd]);
+      if (btn) btn.classList.toggle('active', document.queryCommandState(cmd));
+    });
+    const blockTag = document.queryCommandValue('formatBlock').toUpperCase();
+    document.getElementById('btn-h1').classList.toggle('active', blockTag === 'H1');
+    document.getElementById('btn-h2').classList.toggle('active', blockTag === 'H2');
+    document.getElementById('btn-h3').classList.toggle('active', blockTag === 'H3');
+    document.getElementById('btn-normal').classList.toggle('active', blockTag === 'P' || blockTag === 'DIV');
+  }, 10);
+}
+
+function updateToolbarFromTab() {
+  const tab = getTab(activeTabId);
+  if (!tab) return;
+  document.getElementById('font-family-select').value = tab.font;
+  document.getElementById('font-size-select').value = tab.size;
+  document.getElementById('line-height-select').value = tab.lineHeight;
+}
+
+// ─── Formatting ──────────────────────────────────────────────────────────────
+function fmt(cmd, val) {
+  restoreSelection();
+  document.execCommand(cmd, false, val || null);
+  saveSelection();
+  updateToolbarState();
+}
+
+function formatBlock(tag) {
+  restoreSelection();
+  document.execCommand('formatBlock', false, tag);
+  saveSelection();
+  updateToolbarState();
+}
+
+function insertBlockquote() {
+  restoreSelection();
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  const bq = document.createElement('blockquote');
+  const selectedText = sel.toString();
+  bq.textContent = selectedText || 'Quote…';
+  range.deleteContents();
+  range.insertNode(bq);
+  range.setStartAfter(bq);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  const tab = getTab(activeTabId);
+  if (tab) tab.content = getActivePane().innerHTML;
+  scheduleAutosave();
+  saveSelection();
+}
+
+function insertCodeBlock() {
+  restoreSelection();
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const range = sel.getRangeAt(0);
+  const pre = document.createElement('pre');
+  const code = document.createElement('code');
+  code.textContent = sel.toString() || '// code here';
+  pre.appendChild(code);
+  range.deleteContents();
+  range.insertNode(pre);
+  range.setStartAfter(pre);
+  range.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(range);
+  const tab = getTab(activeTabId);
+  if (tab) tab.content = getActivePane().innerHTML;
+  scheduleAutosave();
+  saveSelection();
+}
+
+function insertChecklist() {
+  restoreSelection();
+  const pane = getActivePane();
+  const ul = document.createElement('ul');
+  ul.setAttribute('data-checklist', '1');
+  const li = document.createElement('li');
+  const cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.addEventListener('change', function() {
+    this.parentElement.classList.toggle('checked', this.checked);
+  });
+  const span = document.createElement('span');
+  span.textContent = 'Task item';
+  li.appendChild(cb);
+  li.appendChild(span);
+  ul.appendChild(li);
+  const sel = window.getSelection();
+  if (sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    range.collapse(false);
+    range.insertNode(ul);
+    range.setStartAfter(ul);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+  } else {
+    pane.appendChild(ul);
+  }
+  const tab = getTab(activeTabId);
+  if (tab) tab.content = pane.innerHTML;
+  scheduleAutosave();
+  saveSelection();
+}
+
+function applyHighlight(color) {
+  restoreSelection();
+  if (color === 'transparent') {
+    document.execCommand('hiliteColor', false, 'transparent');
+    document.execCommand('backColor', false, 'transparent');
+  } else {
+    document.execCommand('hiliteColor', false, color);
+  }
+  document.getElementById('highlight-popup').classList.remove('open');
+  updateToolbarState();
+  saveSelection();
+}
+
+function toggleHighlightPicker(e) {
+  e.stopPropagation();
+  saveSelection();
+  document.getElementById('highlight-popup').classList.toggle('open');
+}
+
+document.getElementById('font-family-select').addEventListener('change', function() {
+  const tab = getTab(activeTabId);
+  if (tab) {
+    tab.font = this.value;
+    const pane = getActivePane();
+    if (pane) pane.style.fontFamily = this.value;
+    saveTabs();
+  }
+});
+document.getElementById('font-size-select').addEventListener('change', function() {
+  const tab = getTab(activeTabId);
+  if (tab) {
+    tab.size = this.value;
+    const pane = getActivePane();
+    if (pane) pane.style.fontSize = this.value + 'px';
+    saveTabs();
+  }
+});
+document.getElementById('line-height-select').addEventListener('change', function() {
+  const tab = getTab(activeTabId);
+  if (tab) {
+    tab.lineHeight = this.value;
+    const pane = getActivePane();
+    if (pane) pane.style.lineHeight = this.value;
+    saveTabs();
+  }
+});
+
+const textColorInput = document.getElementById('text-color-input');
+const textColorBar = document.getElementById('text-color-bar');
+textColorInput.addEventListener('input', function() {
+  textColorBar.style.background = this.value;
+  restoreSelection();
+  document.execCommand('foreColor', false, this.value);
+  saveSelection();
+});
+
+// ─── Table Resizing Engine ────────────────────────────────────────────────────
+let isResizingTable = false;
+let resizeCell = null;
+let resizeAxis = null; // 'x' for col, 'y' for row
+let resizeStartPos = 0;
+let resizeStartSize = 0;
+let resizeNextCell = null; 
+let resizeNextStartSize = 0;
+let tableStartWidth = 0;
+
+const editorArea = document.getElementById('editor-area');
+
+// Detect hover over borders to show resize cursor
+editorArea.addEventListener('mousemove', (e) => {
+  if (isResizingTable) return;
+  const pane = getActivePane();
+  if (!pane || !pane.contains(e.target)) return;
+
+  let td = e.target.closest('td');
+  if (td) {
+    let rect = td.getBoundingClientRect();
+    let nearRight = Math.abs(e.clientX - rect.right) < 6;
+    let nearBottom = Math.abs(e.clientY - rect.bottom) < 6;
+
+    if (nearRight) {
+      pane.style.cursor = 'col-resize';
+      td.dataset.resizing = 'x';
+    } else if (nearBottom) {
+      pane.style.cursor = 'row-resize';
+      td.dataset.resizing = 'y';
+    } else {
+      pane.style.cursor = 'text';
+      delete td.dataset.resizing;
+    }
+  } else {
+    pane.style.cursor = 'text';
+  }
+});
+
+// Initiate Drag
+document.addEventListener('mousedown', (e) => {
+  let td = e.target.closest('td');
+  const pane = getActivePane();
+  
+  if (td && pane && pane.contains(td) && td.dataset.resizing) {
+    e.preventDefault(); 
+    isResizingTable = true;
+    document.body.classList.add('is-resizing'); 
+    
+    resizeCell = td;
+    resizeAxis = td.dataset.resizing;
+    let rect = td.getBoundingClientRect();
+    
+    if (resizeAxis === 'x') {
+      resizeStartPos = e.clientX;
+      resizeStartSize = rect.width;
+      resizeNextCell = td.nextElementSibling;
+      if (resizeNextCell) {
+        resizeNextStartSize = resizeNextCell.getBoundingClientRect().width;
+      }
+    } else {
+      resizeStartPos = e.clientY;
+      resizeStartSize = rect.height;
+    }
+    
+    // Force table into fixed layout if it isn't already
+    let table = td.closest('table');
+    if (table.style.tableLayout !== 'fixed') {
+      let firstRow = table.rows[0];
+      Array.from(firstRow.cells).forEach(c => {
+        if (!c.style.width) c.style.width = c.getBoundingClientRect().width + 'px';
+      });
+      table.style.tableLayout = 'fixed';
+    }
+    tableStartWidth = table.getBoundingClientRect().width;
+  }
+});
+
+// Handle Drag
+document.addEventListener('mousemove', (e) => {
+  if (!isResizingTable || !resizeCell) return;
+  e.preventDefault();
+
+  if (resizeAxis === 'x') {
+    let delta = e.clientX - resizeStartPos;
+    let newWidth = Math.max(20, resizeStartSize + delta);
+    resizeCell.style.width = newWidth + 'px';
+    
+    if (resizeNextCell) {
+      // Shrink adjacent column 
+      let nextWidth = Math.max(20, resizeNextStartSize - delta);
+      resizeNextCell.style.width = nextWidth + 'px';
+    } else {
+      // Expand overall table if pulling the right-most edge
+      let table = resizeCell.closest('table');
+      table.style.width = Math.max(50, tableStartWidth + delta) + 'px';
+    }
+  } else {
+    let delta = e.clientY - resizeStartPos;
+    let newHeight = Math.max(20, resizeStartSize + delta);
+    resizeCell.style.height = newHeight + 'px';
+  }
+});
+
+// End Drag
+document.addEventListener('mouseup', (e) => {
+  if (isResizingTable) {
+    isResizingTable = false;
+    document.body.classList.remove('is-resizing');
+    resizeCell = null;
+    resizeNextCell = null;
+    
+    const pane = getActivePane();
+    if (pane) pane.style.cursor = 'text';
+    
+    const tab = getTab(activeTabId);
+    if (tab && pane) {
+      tab.content = pane.innerHTML;
+      scheduleAutosave();
+    }
+  }
+});
+
+// ─── Table Picker Generation ──────────────────────────────────────────────────
+function initTablePicker() {
+  const grid = document.getElementById('table-grid');
+  const label = document.getElementById('table-label');
+  
+  for (let r = 1; r <= 8; r++) {
+    for (let c = 1; c <= 10; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'table-cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      
+      cell.addEventListener('mouseover', () => {
+        document.querySelectorAll('.table-cell').forEach(el => {
+          if (el.dataset.r <= r && el.dataset.c <= c) el.classList.add('highlight');
+          else el.classList.remove('highlight');
+        });
+        label.textContent = `${c}×${r} Table`;
+      });
+      
+      cell.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        restoreSelection(); 
+        
+        // Locked fixed-width table right out of the box (approx 150px per cell)
+        let html = '<table style="border-collapse: collapse; margin-bottom: 1em; table-layout: fixed;"><tbody>';
+        for (let i = 0; i < r; i++) {
+          html += '<tr>';
+          for (let j = 0; j < c; j++) {
+            html += `<td style="border: 1px solid #777; padding: 8px; width: 120px; min-width: 20px; vertical-align: top;"><br></td>`;
+          }
+          html += '</tr>';
+        }
+        html += '</tbody></table><p><br></p>';
+        
+        document.execCommand('insertHTML', false, html);
+        document.getElementById('table-popup').classList.remove('open');
+        saveSelection();
+      });
+      grid.appendChild(cell);
+    }
+  }
+
+  document.querySelector('.table-picker-content').addEventListener('mouseleave', () => {
+    document.querySelectorAll('.table-cell').forEach(el => el.classList.remove('highlight'));
+    label.textContent = 'Insert Table';
+  });
+}
+
+function toggleTablePicker(e) {
+  e.stopPropagation();
+  saveSelection(); 
+  document.getElementById('table-popup').classList.toggle('open');
+}
+
+// ─── Special Characters ───────────────────────────────────────────────────────
+const specialChars = {
+  typography: ['—','–','…','•','§','©','®','™','¶'],
+  math: ['÷','×','±','≠','≈','∞','√','π','∑','∆','°'],
+  arrows: ['←','→','↑','↓','↔','⇒','⇐','⇔'],
+  emoji: ['📌','✅','❌','⭐','🔥','💡','📎','✏️','🔒'],
+  currency: ['£','€','$','¥','₿']
+};
+function buildSpecialChars() {
+  Object.entries(specialChars).forEach(([group, chars]) => {
+    const container = document.getElementById('sc-' + group);
+    if (!container) return;
+    chars.forEach(ch => {
+      const btn = document.createElement('button');
+      btn.className = 'sc-btn';
+      btn.textContent = ch;
+      btn.title = ch;
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        insertCharAtCursor(ch);
+        document.getElementById('special-char-panel').classList.remove('open');
+      });
+      container.appendChild(btn);
+    });
+  });
+}
+
+function insertCharAtCursor(char) {
+  restoreSelection();
+  const sel = window.getSelection();
+  if (sel.rangeCount) {
+    const range = sel.getRangeAt(0);
+    range.deleteContents();
+    const node = document.createTextNode(char);
+    range.insertNode(node);
+    range.setStartAfter(node);
+    range.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(range);
+    const tab = getTab(activeTabId);
+    if (tab) tab.content = getActivePane().innerHTML;
+    updateStats();
+    scheduleAutosave();
+    saveSelection();
+  }
+}
+
+function toggleSpecialCharPanel(e) {
+  e.stopPropagation();
+  saveSelection();
+  const panel = document.getElementById('special-char-panel');
+  panel.classList.toggle('open');
+}
+
+// Close panels on outside click
+document.addEventListener('click', (e) => {
+  const scPanel = document.getElementById('special-char-panel');
+  const hlPopup = document.getElementById('highlight-popup');
+  const tablePopup = document.getElementById('table-popup');
+
+  if (!e.target.closest('#btn-special-char') && !e.target.closest('#special-char-panel')) {
+    if (scPanel) scPanel.classList.remove('open');
+  }
+  if (!e.target.closest('.highlight-picker')) {
+    if (hlPopup) hlPopup.classList.remove('open');
+  }
+  if (!e.target.closest('#table-dropdown')) {
+    if (tablePopup) tablePopup.classList.remove('open');
+  }
+});
+
+// ─── Stats ───────────────────────────────────────────────────────────────────
+function updateStats() {
+  const pane = getActivePane();
+  if (!pane) return;
+  const text = pane.innerText || '';
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const chars = text.replace(/\n/g, '').length;
+  const lines = text.split('\n').filter(l => l.trim()).length || 0;
+  document.getElementById('word-count').textContent = 'Words: ' + words;
+  document.getElementById('char-count').textContent = 'Chars: ' + chars;
+  document.getElementById('line-count').textContent = 'Lines: ' + lines;
+}
+
+// ─── Autosave ─────────────────────────────────────────────────────────────────
+function scheduleAutosave() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(saveTabs, 5000);
+}
+
+function saveTabs() {
+  const data = tabs.map(t => {
+    const pane = getPaneEl(t.id);
+    return { title: t.title, content: pane ? pane.innerHTML : t.content, font: t.font, size: t.size, lineHeight: t.lineHeight, scrollTop: t.scrollTop };
+  });
+  storageSet('np-tabs', JSON.stringify(data));
+  storageSet('np-active-idx', tabs.findIndex(t => t.id === activeTabId).toString());
+  flashSaved();
+}
+
+function flashSaved() {
+  const el = document.getElementById('autosave-status');
+  el.textContent = 'Saved ✓';
+  el.classList.add('flash');
+  clearTimeout(lastSavedIndicator);
+  lastSavedIndicator = setTimeout(() => {
+    el.classList.remove('flash');
+    el.textContent = 'Saved';
+  }, 1500);
+}
+
+function loadTabs() {
+  const raw = storageGet('np-tabs');
+  if (!raw) return false;
+  try {
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data) || data.length === 0) return false;
+    const activeIdx = parseInt(storageGet('np-active-idx') || '0', 10);
+    data.forEach((t, i) => {
+      createTab(t.title, t.content, t.font, t.size, t.lineHeight, t.scrollTop);
+    });
+    const targetId = tabs[Math.min(activeIdx, tabs.length - 1)]?.id;
+    if (targetId) switchTab(targetId);
+    return true;
+  } catch(e) { return false; }
+}
+
+// ─── Find & Replace ───────────────────────────────────────────────────────────
+function openFindReplace() {
+  const panel = document.getElementById('find-replace-panel');
+  panel.classList.add('open');
+  document.getElementById('fr-find').focus();
+}
+function closeFindReplace() {
+  document.getElementById('find-replace-panel').classList.remove('open');
+  clearFrHighlights();
+  frMatches = [];
+  frMatchIndex = -1;
+  document.getElementById('fr-count').textContent = '';
+}
+
+function clearFrHighlights() {
+  const pane = getActivePane();
+  if (!pane) return;
+  pane.querySelectorAll('.find-highlight').forEach(el => {
+    const parent = el.parentNode;
+    parent.replaceChild(document.createTextNode(el.textContent), el);
+    parent.normalize();
+  });
+}
+
+function frFindAll() {
+  clearFrHighlights();
+  frMatches = [];
+  frMatchIndex = -1;
+  const query = document.getElementById('fr-find').value;
+  if (!query) return;
+  const pane = getActivePane();
+  if (!pane) return;
+  const walker = document.createTreeWalker(pane, NodeFilter.SHOW_TEXT, null, false);
+  const textNodes = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode);
+  const lq = query.toLowerCase();
+  textNodes.forEach(node => {
+    const text = node.textContent;
+    const lt = text.toLowerCase();
+    let pos = 0, idx;
+    const parts = [];
+    while ((idx = lt.indexOf(lq, pos)) !== -1) {
+      if (idx > pos) parts.push(document.createTextNode(text.slice(pos, idx)));
+      const span = document.createElement('span');
+      span.className = 'find-highlight';
+      span.textContent = text.slice(idx, idx + query.length);
+      parts.push(span);
+      frMatches.push(span);
+      pos = idx + query.length;
+    }
+    if (parts.length && pos <= text.length) {
+      parts.push(document.createTextNode(text.slice(pos)));
+      const frag = document.createDocumentFragment();
+      parts.forEach(p => frag.appendChild(p));
+      node.parentNode.replaceChild(frag, node);
+    }
+  });
+  document.getElementById('fr-count').textContent = frMatches.length + ' match(es)';
+  if (frMatches.length) { frMatchIndex = 0; highlightCurrent(); }
+}
+
+function highlightCurrent() {
+  frMatches.forEach((m, i) => m.classList.toggle('current', i === frMatchIndex));
+  if (frMatches[frMatchIndex]) frMatches[frMatchIndex].scrollIntoView({ block: 'center', behavior: 'smooth' });
+  document.getElementById('fr-count').textContent = (frMatchIndex + 1) + ' / ' + frMatches.length;
+}
+
+function frNext() { if (!frMatches.length) { frFindAll(); return; } frMatchIndex = (frMatchIndex + 1) % frMatches.length; highlightCurrent(); }
+function frPrev() { if (!frMatches.length) { frFindAll(); return; } frMatchIndex = (frMatchIndex - 1 + frMatches.length) % frMatches.length; highlightCurrent(); }
+
+function frReplaceOne() {
+  if (!frMatches.length) frFindAll();
+  if (frMatchIndex < 0 || frMatchIndex >= frMatches.length) return;
+  const replaceVal = document.getElementById('fr-replace').value;
+  const span = frMatches[frMatchIndex];
+  span.outerHTML = replaceVal;
+  frMatches.splice(frMatchIndex, 1);
+  if (frMatchIndex >= frMatches.length) frMatchIndex = frMatches.length - 1;
+  if (frMatches.length) highlightCurrent();
+  else document.getElementById('fr-count').textContent = '0 matches';
+  const tab = getTab(activeTabId);
+  if (tab) { tab.content = getActivePane().innerHTML; scheduleAutosave(); }
+}
+
+function frReplaceAll() {
+  if (!frMatches.length) frFindAll();
+  const replaceVal = document.getElementById('fr-replace').value;
+  frMatches.forEach(span => { span.outerHTML = replaceVal; });
+  frMatches = [];
+  frMatchIndex = -1;
+  document.getElementById('fr-count').textContent = 'All replaced';
+  const tab = getTab(activeTabId);
+  if (tab) { tab.content = getActivePane().innerHTML; scheduleAutosave(); }
+}
+
+document.getElementById('fr-find').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); frNext(); }
+});
+
+// ─── Export / Import ──────────────────────────────────────────────────────────
+function getCurrentTitle() {
+  const tab = getTab(activeTabId);
+  return (tab ? tab.title : 'note').replace(/[^a-z0-9_\-]/gi, '_');
+}
+
+function exportDoc() {
+  const pane = getActivePane();
+  if (!pane) return;
+  const fontFamily = pane.style.fontFamily || 'Inter, sans-serif';
+  const fontSize = pane.style.fontSize || '16px';
+  // Generates Word compatible HTML file 
+  const docHTML = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8"><title>${getCurrentTitle()}</title>
+    <style>
+      body { font-family: ${fontFamily}; font-size: ${fontSize}; }
+      table { border-collapse: collapse; margin-bottom: 1em; }
+      td { border: 1px solid #000; padding: 5px; vertical-align: top; }
+      h1 { font-size: 2em; font-weight: bold; margin-bottom: 0.5em; }
+      h2 { font-size: 1.5em; font-weight: bold; margin-bottom: 0.5em; }
+      h3 { font-size: 1.17em; font-weight: bold; margin-bottom: 0.5em; }
+    </style>
+    </head>
+    <body>${pane.innerHTML}</body>
+    </html>
+  `;
+  download(getCurrentTitle() + '.doc', '\ufeff' + docHTML, 'application/msword');
+  closeModal('export-overlay');
+}
+
+function exportHtml() {
+  const pane = getActivePane();
+  if (!pane) return;
+  const fontFamily = pane.style.fontFamily || 'Inter, sans-serif';
+  const fontSize = pane.style.fontSize || '16px';
+  const lineHeight = pane.style.lineHeight || '1.6';
+  
+  const full = `<!DOCTYPE html>\n<html>\n<head><meta charset="UTF-8"><title>${getCurrentTitle()}</title>\n<style>\nbody { font-family: ${fontFamily}; font-size: ${fontSize}; line-height: ${lineHeight}; padding: 40px; max-width: 1000px; margin: 0 auto; color: #333; }\ntable { border-collapse: collapse; margin-bottom: 1em; }\ntd, th { border: 1px solid #777; padding: 8px; vertical-align: top; }\nblockquote { border-left: 4px solid #3b82f6; padding-left: 16px; font-style: italic; color: #666; }\npre { background: #f4f4f4; padding: 12px; border-radius: 4px; overflow-x: auto; }\n</style>\n</head>\n<body>\n${pane.innerHTML}\n</body>\n</html>`;
+  download(getCurrentTitle() + '.html', full, 'text/html');
+  closeModal('export-overlay');
+}
+
+function printDoc() {
+  closeModal('export-overlay');
+  setTimeout(() => window.print(), 200);
+}
+
+function download(filename, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('export-btn').addEventListener('click', () => openModal('export-overlay'));
+document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file-input').click());
+
+// Load an imported file into a NEW TAB automatically
+document.getElementById('import-file-input').addEventListener('change', function() {
+  const file = this.files[0];
+  if (!file) return;
+  
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    let newContent = '';
+    
+    // Parse formatting appropriately based on file type
+    if (file.name.endsWith('.html') || file.name.endsWith('.doc')) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(e.target.result, 'text/html');
+      newContent = doc.body.innerHTML;
+    } else {
+      // Split txt file into HTML paragraphs
+      newContent = e.target.result.split('\n').map(line => `<p>${line || '<br>'}</p>`).join('');
+    }
+    
+    // Create new tab instead of overwriting the current one
+    const newTitle = file.name.replace(/\.[^.]+$/, '');
+    createTab(newTitle, newContent);
+    
+    saveTabs();
+  };
+  
+  reader.readAsText(file);
+  this.value = '';
+});
+
+// ─── Modals ───────────────────────────────────────────────────────────────────
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', (e) => { if (e.target === o) o.classList.remove('open'); });
+});
+document.getElementById('shortcuts-btn').addEventListener('click', () => openModal('shortcuts-overlay'));
+
+// ─── Fullscreen ───────────────────────────────────────────────────────────────
+function enterFullscreen() { document.body.classList.add('fullscreen-mode'); }
+function exitFullscreen() { document.body.classList.remove('fullscreen-mode'); }
+document.getElementById('fullscreen-btn').addEventListener('click', () => {
+  document.body.classList.toggle('fullscreen-mode');
+});
+document.getElementById('fullscreen-exit').addEventListener('click', exitFullscreen);
+
+// ─── Global Keyboard Shortcuts & Markdown tracker ─────────────────────────────
+document.addEventListener('keydown', function(e) {
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (ctrl && e.key === 't') { e.preventDefault(); createTab(); }
+  if (ctrl && e.key === 'w') { e.preventDefault(); if (activeTabId) removeTab(activeTabId); }
+  if (ctrl && !e.shiftKey && e.key === 'Tab') { e.preventDefault(); cycleTab(1); }
+  if (ctrl && e.shiftKey && e.key === 'Tab') { e.preventDefault(); cycleTab(-1); }
+  if (ctrl && e.key === 'f') { e.preventDefault(); openFindReplace(); }
+  if (ctrl && e.shiftKey && e.key === 'F') { e.preventDefault(); document.body.classList.toggle('fullscreen-mode'); }
+  if (ctrl && e.key === '/') { e.preventDefault(); openModal('shortcuts-overlay'); }
+  if (e.key === 'Escape') {
+    if (document.body.classList.contains('fullscreen-mode')) { exitFullscreen(); return; }
+    closeFindReplace();
+    document.querySelectorAll('.overlay.open').forEach(o => o.classList.remove('open'));
+    document.getElementById('special-char-panel').classList.remove('open');
+    document.getElementById('highlight-popup').classList.remove('open');
+    document.getElementById('table-popup').classList.remove('open');
+  }
+});
+
+function handleEditorKeydown(e) {
+  // Tab indexing
+  if (e.key === 'Tab' && !e.shiftKey) {
+    e.preventDefault();
+    document.execCommand('insertHTML', false, '&nbsp;&nbsp;&nbsp;&nbsp;');
+  }
+  
+  // Real-time Markdown parsing for Headings on Spacebar press
+  if (e.key === ' ' && !e.shiftKey) {
+    const sel = window.getSelection();
+    if (sel.isCollapsed && sel.anchorNode && sel.anchorNode.nodeType === Node.TEXT_NODE) {
+      const textBeforeCursor = sel.anchorNode.textContent.substring(0, sel.anchorOffset);
+      
+      // If the line starts precisely with #, ##, or ### 
+      if (/^#{1,3}$/.test(textBeforeCursor)) {
+        e.preventDefault(); // Stop standard space bar insertion
+        const headingTag = 'H' + textBeforeCursor.length;
+        
+        // Grab the hashes
+        const range = document.createRange();
+        range.setStart(sel.anchorNode, 0);
+        range.setEnd(sel.anchorNode, sel.anchorOffset);
+        sel.removeAllRanges();
+        sel.addRange(range);
+        
+        // Destroy hashes natively and force block into heading
+        document.execCommand('delete', false, null);
+        document.execCommand('formatBlock', false, headingTag);
+        return;
+      }
+    }
+  }
+}
+
+function cycleTab(dir) {
+  if (!tabs.length) return;
+  const idx = tabs.findIndex(t => t.id === activeTabId);
+  const next = (idx + dir + tabs.length) % tabs.length;
+  switchTab(tabs[next].id);
+}
+
+// ─── Add Tab Button ───────────────────────────────────────────────────────────
+document.getElementById('add-tab-btn').addEventListener('click', () => createTab());
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+initTheme();
+buildSpecialChars();
+initTablePicker();
+if (!loadTabs()) { createTab('Untitled', '<p><br></p>'); }
+
+// Periodic autosave
+setInterval(() => {
+  const pane = getActivePane();
+  const tab = getTab(activeTabId);
+  if (pane && tab) tab.content = pane.innerHTML;
+  saveTabs();
+}, 5000);
+
+// Make functions global (used by inline onclick attributes)
+window.fmt = fmt;
+window.formatBlock = formatBlock;
+window.insertBlockquote = insertBlockquote;
+window.insertCodeBlock = insertCodeBlock;
+window.insertChecklist = insertChecklist;
+window.applyHighlight = applyHighlight;
+window.toggleHighlightPicker = toggleHighlightPicker;
+window.toggleSpecialCharPanel = toggleSpecialCharPanel;
+window.toggleTablePicker = toggleTablePicker;
+window.frFindAll = frFindAll;
+window.frNext = frNext;
+window.frPrev = frPrev;
+window.frReplaceOne = frReplaceOne;
+window.frReplaceAll = frReplaceAll;
+window.closeFindReplace = closeFindReplace;
+window.exportDoc = exportDoc;
+window.exportHtml = exportHtml;
+window.printDoc = printDoc;
+window.closeModal = closeModal;
+window.exitFullscreen = exitFullscreen;
+
+})();
+</script>
+</body>
+</html>
