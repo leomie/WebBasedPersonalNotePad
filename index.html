@@ -1090,7 +1090,6 @@ function renderTabBar() {
   const bar = document.getElementById('tab-bar');
   const addBtn = document.getElementById('add-tab-btn');
   
-  // Cleanly remove only the tabs, preserving the add button's event bindings
   bar.querySelectorAll('.tab').forEach(t => t.remove());
 
   tabs.forEach(tab => {
@@ -1104,7 +1103,6 @@ function renderTabBar() {
     title.textContent = tab.title;
     title.addEventListener('dblclick', (e) => { e.stopPropagation(); startRenameTab(tab.id, el, title); });
 
-    // Custom Actions Container (Pencil & Close)
     const actionsContainer = document.createElement('div');
     actionsContainer.className = 'tab-actions';
 
@@ -1150,13 +1148,11 @@ function renderTabBar() {
       }
     });
     
-    // Insert the tab directly before the + button
     bar.insertBefore(el, addBtn);
   });
 }
 
 function startRenameTab(id, el, titleEl) {
-  // Prevent multiple double-clicks from spawning nested inputs
   if (el.querySelector('.tab-title-input')) return;
 
   const tab = getTab(id);
@@ -1364,7 +1360,7 @@ textColorInput.addEventListener('input', function() {
 // ─── Table Resizing Engine ────────────────────────────────────────────────────
 let isResizingTable = false;
 let resizeCell = null;
-let resizeAxis = null; // 'x' for col, 'y' for row
+let resizeAxis = null; 
 let resizeStartPos = 0;
 let resizeStartSize = 0;
 let resizeNextCell = null; 
@@ -1373,7 +1369,6 @@ let tableStartWidth = 0;
 
 const editorArea = document.getElementById('editor-area');
 
-// Detect hover over borders to show resize cursor
 editorArea.addEventListener('mousemove', (e) => {
   if (isResizingTable) return;
   const pane = getActivePane();
@@ -1400,7 +1395,6 @@ editorArea.addEventListener('mousemove', (e) => {
   }
 });
 
-// Initiate Drag
 document.addEventListener('mousedown', (e) => {
   let td = e.target.closest('td');
   const pane = getActivePane();
@@ -1426,7 +1420,6 @@ document.addEventListener('mousedown', (e) => {
       resizeStartSize = rect.height;
     }
     
-    // Force table into fixed layout if it isn't already
     let table = td.closest('table');
     if (table.style.tableLayout !== 'fixed') {
       let firstRow = table.rows[0];
@@ -1439,7 +1432,6 @@ document.addEventListener('mousedown', (e) => {
   }
 });
 
-// Handle Drag
 document.addEventListener('mousemove', (e) => {
   if (!isResizingTable || !resizeCell) return;
   e.preventDefault();
@@ -1450,11 +1442,9 @@ document.addEventListener('mousemove', (e) => {
     resizeCell.style.width = newWidth + 'px';
     
     if (resizeNextCell) {
-      // Shrink adjacent column 
       let nextWidth = Math.max(20, resizeNextStartSize - delta);
       resizeNextCell.style.width = nextWidth + 'px';
     } else {
-      // Expand overall table if pulling the right-most edge
       let table = resizeCell.closest('table');
       table.style.width = Math.max(50, tableStartWidth + delta) + 'px';
     }
@@ -1465,7 +1455,6 @@ document.addEventListener('mousemove', (e) => {
   }
 });
 
-// End Drag
 document.addEventListener('mouseup', (e) => {
   if (isResizingTable) {
     isResizingTable = false;
@@ -1509,7 +1498,6 @@ function initTablePicker() {
         e.stopPropagation();
         restoreSelection(); 
         
-        // Locked fixed-width table right out of the box (approx 150px per cell)
         let html = '<table style="border-collapse: collapse; margin-bottom: 1em; table-layout: fixed;"><tbody>';
         for (let i = 0; i < r; i++) {
           html += '<tr>';
@@ -1766,18 +1754,66 @@ document.getElementById('fr-find').addEventListener('keydown', (e) => {
   if (e.key === 'Enter') { e.preventDefault(); frNext(); }
 });
 
-// ─── Export / Import ──────────────────────────────────────────────────────────
+// ─── Export / Import Core ────────────────────────────────────────────────────
 function getCurrentTitle() {
   const tab = getTab(activeTabId);
   return (tab ? tab.title : 'note').replace(/[^a-z0-9_\-]/gi, '_');
 }
 
-function exportDoc() {
+// Fallback logic for basic downloading if File System API is blocked/unavailable
+function fallbackDownload(content, fileName, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Advanced Folder Picker API
+async function saveFileWithPicker(suggestedName, content, mimeType, fileExtension, fileDescription) {
+  if (window.showSaveFilePicker) {
+    try {
+      const handle = await window.showSaveFilePicker({
+        suggestedName: suggestedName,
+        types: [{
+          description: fileDescription,
+          accept: { [mimeType]: [fileExtension] }
+        }]
+      });
+      const writable = await handle.createWritable();
+      
+      // Blob format required for encoding safety (specifically for .doc BOM handling)
+      const blob = new Blob([content], { type: mimeType });
+      await writable.write(blob);
+      await writable.close();
+      return; 
+    } catch (err) {
+      if (err.name === 'AbortError') return; // User simply clicked "Cancel"
+      
+      // If it fails for environmental security reasons (like running locally as file://)
+      if (window.location.protocol === 'file:') {
+        alert("Folder Selection Blocked by Browser:\n\nBecause you opened this file directly from your computer (file://), your browser's security blocks the 'Choose Folder' dialog.\n\nThe file will automatically save to your default 'Downloads' folder.");
+      }
+    }
+  } else {
+    // If the browser doesn't support the API at all or it's totally blocked
+    if (window.location.protocol === 'file:') {
+      alert("Folder Selection Blocked by Browser:\n\nBecause you opened this file directly from your computer (file://), your browser's security blocks the 'Choose Folder' dialog.\n\nThe file will automatically save to your default 'Downloads' folder.");
+    }
+  }
+  
+  // If API fails or is rejected, force classic auto-download fallback
+  fallbackDownload(content, suggestedName, mimeType);
+}
+
+async function exportDoc() {
   const pane = getActivePane();
   if (!pane) return;
   const fontFamily = pane.style.fontFamily || 'Inter, sans-serif';
   const fontSize = pane.style.fontSize || '16px';
-  // Generates Word compatible HTML file 
+  
   const docHTML = `
     <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
     <head><meta charset="utf-8"><title>${getCurrentTitle()}</title>
@@ -1793,33 +1829,42 @@ function exportDoc() {
     <body>${pane.innerHTML}</body>
     </html>
   `;
-  download(getCurrentTitle() + '.doc', '\ufeff' + docHTML, 'application/msword');
+  
   closeModal('export-overlay');
+  
+  // Note: '\ufeff' is the Byte Order Mark necessary for Word to read the UTF-8 HTML correctly
+  await saveFileWithPicker(
+    getCurrentTitle() + '.doc', 
+    '\ufeff' + docHTML, 
+    'application/msword', 
+    '.doc', 
+    'Microsoft Word Document'
+  );
 }
 
-function exportHtml() {
+async function exportHtml() {
   const pane = getActivePane();
   if (!pane) return;
   const fontFamily = pane.style.fontFamily || 'Inter, sans-serif';
   const fontSize = pane.style.fontSize || '16px';
   const lineHeight = pane.style.lineHeight || '1.6';
   
-  const full = `<!DOCTYPE html>\n<html>\n<head><meta charset="UTF-8"><title>${getCurrentTitle()}</title>\n<style>\nbody { font-family: ${fontFamily}; font-size: ${fontSize}; line-height: ${lineHeight}; padding: 40px; max-width: 1000px; margin: 0 auto; color: #333; }\ntable { border-collapse: collapse; margin-bottom: 1em; }\ntd, th { border: 1px solid #777; padding: 8px; vertical-align: top; }\nblockquote { border-left: 4px solid #3b82f6; padding-left: 16px; font-style: italic; color: #666; }\npre { background: #f4f4f4; padding: 12px; border-radius: 4px; overflow-x: auto; }\n</style>\n</head>\n<body>\n${pane.innerHTML}\n</body>\n</html>`;
-  download(getCurrentTitle() + '.html', full, 'text/html');
+  const full = `<!DOCTYPE html>\n<html>\n<head><meta charset="UTF-8"><title>${getCurrentTitle()}</title>\n<style>\nbody { font-family: ${fontFamily}; font-size: ${fontSize}; line-height: ${lineHeight}; padding: 40px; max-width: 1000px; margin: 0 auto; color: #333; }\ntable { border-collapse: collapse; width: 100%; margin-bottom: 1em; }\ntd, th { border: 1px solid #777; padding: 8px; vertical-align: top; }\nblockquote { border-left: 4px solid #3b82f6; padding-left: 16px; font-style: italic; color: #666; }\npre { background: #f4f4f4; padding: 12px; border-radius: 4px; overflow-x: auto; }\n</style>\n</head>\n<body>\n${pane.innerHTML}\n</body>\n</html>`;
+  
   closeModal('export-overlay');
+  
+  await saveFileWithPicker(
+    getCurrentTitle() + '.html', 
+    full, 
+    'text/html', 
+    '.html', 
+    'HTML Document'
+  );
 }
 
 function printDoc() {
   closeModal('export-overlay');
   setTimeout(() => window.print(), 200);
-}
-
-function download(filename, content, type) {
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([content], { type }));
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(a.href);
 }
 
 document.getElementById('export-btn').addEventListener('click', () => openModal('export-overlay'));
